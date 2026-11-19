@@ -23,10 +23,11 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler
 
-# Ensure root is on path
+# Ensure root is on path and active directory
 ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+os.chdir(ROOT_DIR)
 
 from src.datasets.splitter import build_group_splits
 from src.datasets.video_dataset import VideoClipsDataset
@@ -53,23 +54,71 @@ def setup_ddp() -> Tuple[bool, int, int, torch.device]:
     return is_distributed, rank, local_rank, device
 
 
+def has_videos(folder: Path) -> bool:
+    """Fast O(1) check if a folder contains any supported video files."""
+    if not folder.exists() or not folder.is_dir():
+        return False
+    for ext in ("*.avi", "*.mp4", "*.mkv", "*.mov", "*.webm"):
+        try:
+            if next(folder.rglob(ext), None) is not None:
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def resolve_dataset_dir(configured_path: str) -> Path:
-    """Intelligently search common Kaggle and Colab input locations."""
-    candidate_paths = [
-        Path(configured_path),
+    """Intelligently search common Kaggle and Colab input locations and auto-extract zips if needed."""
+    cfg_p = Path(configured_path)
+    if has_videos(cfg_p):
+        return cfg_p
+
+    # Auto-extract if Model Data.zip exists in Drive or content
+    candidate_zips = [
+        Path("/content/drive/MyDrive/Model Data.zip"),
+        Path("/content/drive/MyDrive/SportsAction/Model Data.zip"),
+        Path("/content/Model Data.zip"),
+        Path("Archive/Model Data.zip"),
+        Path("Model Data.zip"),
+    ]
+    for zpath in candidate_zips:
+        if zpath.exists():
+            extract_target = Path("/content/dataset") if "/content" in str(cfg_p) else Path("data/raw")
+            print(f"[📦] Found dataset archive: {zpath}")
+            print(f"[📦] Auto-extracting to {extract_target} (this takes ~1-2 min)...")
+            extract_target.mkdir(parents=True, exist_ok=True)
+            import zipfile
+            with zipfile.ZipFile(zpath, "r") as z:
+                z.extractall(extract_target)
+            print(f"[✓] Extraction finished!")
+            if has_videos(extract_target):
+                return extract_target
+
+    # Search common candidate locations
+    candidates = [
+        Path("/content/dataset"),
+        Path("/content/dataset/Model Data"),
+        Path("/content/Model Data"),
         Path("/kaggle/input/sport-action-up"),
         Path("/kaggle/input/sports-action-up"),
         Path("/kaggle/input/model-data"),
         Path("/kaggle/input/ucf101"),
-        Path("/content/dataset"),
         Path("Archive/Model Data"),
         Path("Model Data"),
+        cfg_p,
     ]
-    for p in candidate_paths:
-        if p.exists() and any(p.rglob("*.avi")) or any(p.rglob("*.mp4")):
+    for p in candidates:
+        if has_videos(p):
             return p
-    # Fallback to configured path
-    return Path(configured_path)
+
+    raise FileNotFoundError(
+        f"\n[CRITICAL ERROR] No video files found at '{configured_path}' or any known search paths!\n"
+        f"Searched locations:\n" + "\n".join(f"  - {p.resolve()}" for p in candidates) + "\n\n"
+        "👉 If running in Google Colab:\n"
+        "   1. Ensure 'Model Data.zip' is uploaded to your Google Drive root ('/content/drive/MyDrive/Model Data.zip')\n"
+        "   2. Or unzip it manually in Colab with:\n"
+        "      !unzip -q '/content/drive/MyDrive/Model Data.zip' -d /content/dataset\n"
+    )
 
 
 def main():
