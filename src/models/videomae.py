@@ -11,7 +11,12 @@ from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
-from transformers import VideoMAEConfig, VideoMAEForVideoClassification
+
+try:
+    from transformers import VideoMAEConfig, VideoMAEForVideoClassification
+    HAS_TRANSFORMERS = True
+except ImportError:
+    HAS_TRANSFORMERS = False
 
 
 class SportsVideoMAE(nn.Module):
@@ -26,6 +31,11 @@ class SportsVideoMAE(nn.Module):
         freeze_backbone: bool = False,
     ):
         super().__init__()
+        if not HAS_TRANSFORMERS:
+            raise ImportError(
+                "Hugging Face 'transformers' is required for SportsVideoMAE. "
+                "Please run: pip install transformers timm"
+            )
         self.num_classes = num_classes
         self.pretrained_name = pretrained_name
 
