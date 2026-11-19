@@ -1,0 +1,36 @@
+# Google Colab Optimized Configuration for Single T4 GPU (16 GB VRAM)
+
+model:
+  name: "videomae_base"
+  pretrained_checkpoint: "MCG-NJU/videomae-base-finetuned-kinetics"
+  num_classes: 82
+  dropout: 0.5
+  gradient_checkpointing: true
+
+data:
+  source_dir: "/content/dataset"
+  num_frames: 16
+  sampling_rate: 4
+  input_size: 224
+  num_workers: 2
+  pin_memory: true
+
+training:
+  epochs: 30
+  warmup_epochs: 5
+  micro_batch_size: 2             # 2 per GPU
+  gradient_accumulation_steps: 16 # 2 * 16 = 32 Effective Batch Size
+  precision: "fp16"
+  base_lr: 1.0e-3
+  layer_decay: 0.75
+  weight_decay: 0.05
+
+checkpoint:
+  # Mount Google Drive to preserve checkpoints across random disconnects
+  save_dir: "/content/drive/MyDrive/SportsAction_Checkpoints"
+  save_frequency_epochs: 1
+  auto_resume: true
+
+logging:
+  use_wandb: false
+  csv_log_file: "/content/drive/MyDrive/SportsAction_Checkpoints/training_history.csv"

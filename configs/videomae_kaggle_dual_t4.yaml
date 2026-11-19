@@ -1,0 +1,35 @@
+# Kaggle Optimized Configuration for 2x T4 GPUs (32 GB Total VRAM with DDP)
+
+model:
+  name: "videomae_base"
+  pretrained_checkpoint: "MCG-NJU/videomae-base-finetuned-kinetics"
+  num_classes: 82
+  dropout: 0.5
+  gradient_checkpointing: true
+
+data:
+  source_dir: "/kaggle/input/sport-action-up"
+  num_frames: 16
+  sampling_rate: 4
+  input_size: 224
+  num_workers: 2
+  pin_memory: true
+
+training:
+  epochs: 30
+  warmup_epochs: 5
+  micro_batch_size: 4             # 4 per GPU * 2 GPUs = 8 per step
+  gradient_accumulation_steps: 4  # 8 * 4 = 32 Effective Batch Size
+  precision: "fp16"
+  base_lr: 1.0e-3
+  layer_decay: 0.75
+  weight_decay: 0.05
+
+checkpoint:
+  save_dir: "/kaggle/working/checkpoints"
+  save_frequency_epochs: 1
+  auto_resume: true
+
+logging:
+  use_wandb: false
+  csv_log_file: "/kaggle/working/training_history.csv"

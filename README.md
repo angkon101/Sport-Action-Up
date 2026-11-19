@@ -38,9 +38,9 @@ A state-of-the-art Video Transformer framework for fine-grained sports action re
 
 | Platform | Compute Role | Optimization Details |
 | :--- | :--- | :--- |
-| **Local Machine** (4 GB GPU) | Preprocessing, Group-wise Splitting, & Micro-Subset Debugging | Data audit, 224/160px multi-threaded video transcoding, zero leakage group split generation |
-| **Kaggle** (Primary, 2× T4 16 GB) | Full VideoMAE & Baseline Training Runs | fp16 mixed precision, gradient checkpointing, micro-batch 2–4, auto-resume from checkpoints |
-| **Google Colab** (Backup, 1× T4 16 GB) | Secondary fallback & quick exploration | Persistent Google Drive checkpointing & auto-resume |
+| **⚡ Kaggle** (Primary, 2× T4 16 GB) | Full End-to-End Pipeline & Main Runs | Multi-GPU DDP via `torchrun`, fast `decord` video sampling, dynamic group-wise splits, fp16 GradScaler, auto-resume |
+| **☁️ Google Colab** (Backup, 1× T4 16 GB) | Fallback & Auxiliary Benchmarking | Google Drive auto-mounting for persistent checkpoints, fast VM disk staging, auto-resume |
+| **💻 Local Machine** | Code Management & Git Sync | Zero heavy compute required; all data engineering and training run in cloud |
 
 ---
 

@@ -1,9 +1,9 @@
 # 📋 Master Working Plan: Video Transformer & VideoMAE Framework for Sports Action Recognition
 
 > **Research Thesis**: Fine-Grained Sports Action Recognition across 82 Sports Categories  
-> **Primary Compute**: Kaggle (2× NVIDIA T4 16GB / Tesla P100 16GB, ~30 GPU hrs/week)  
-> **Secondary / Backup Compute**: Google Colab Free Tier (1× NVIDIA T4 16GB)  
-> **Local Machine**: 4 GB NVIDIA GPU (GTX 1650/RTX 3050 mobile) — Data Audit, Group-Wise Splitting, Video Preprocessing, & Sub-Batch Smoke Tests  
+> **Primary Compute**: Kaggle (2× NVIDIA T4 16GB / Tesla P100 16GB, ~30 GPU hrs/week) — **Full Training, Preprocessing & DDP Multi-GPU Execution**  
+> **Secondary / Backup Compute**: Google Colab Free Tier (1× NVIDIA T4 16GB) — **Persistent Google Drive Checkpoint Execution**  
+> **Local Machine**: Lightweight Code Authoring & Git Version Control (0% Heavy GPU/CPU Compute Required)  
 > **Date Updated**: November 2026  
 
 ---
