@@ -42,7 +42,10 @@ class HOIFeatureDataset(Dataset):
             print(f"--> Preloading {len(self.samples):,} feature tensors from '{self.features_dir.name}' into RAM...")
             for file_path, label in tqdm(self.samples, desc=f"RAM Cache ({self.features_dir.name})", leave=False):
                 try:
-                    data = torch.load(file_path, map_location="cpu")
+                    try:
+                        data = torch.load(file_path, map_location="cpu", weights_only=False)
+                    except TypeError:
+                        data = torch.load(file_path, map_location="cpu")
                     self.cached_data.append({
                         "visual": data["visual"].float(),
                         "pose": data["pose"].float(),
@@ -76,7 +79,10 @@ class HOIFeatureDataset(Dataset):
             return self.cached_data[idx], self.cached_labels[idx]
 
         file_path, label = self.samples[idx]
-        features = torch.load(file_path, map_location="cpu")
+        try:
+            features = torch.load(file_path, map_location="cpu", weights_only=False)
+        except TypeError:
+            features = torch.load(file_path, map_location="cpu")
 
         sample_dict = {
             "visual": features["visual"].float(),

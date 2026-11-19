@@ -40,8 +40,13 @@ SPORTS_OBJECT_COCO_IDS = {
 class SportsFeatureExtractor:
     """Extracts multimodal visual, pose, object, and HOI feature sequences from video clips."""
 
-    def __init__(self, device: Optional[torch.device] = None, num_frames: int = 16):
-        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    def __init__(self, device: Optional[torch.device | str] = None, num_frames: int = 16):
+        if isinstance(device, str):
+            self.device = torch.device(device)
+        elif device is None:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = device
         self.num_frames = num_frames
 
         print(f"--> Initializing Feature Extractors on {self.device}...")
