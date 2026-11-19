@@ -1,0 +1,45 @@
+# VideoMAE ViT-B Training Configuration for 82-Class Sports Action Recognition
+
+model:
+  name: "videomae_base"
+  pretrained_checkpoint: "MCG-NJU/videomae-base-finetuned-kinetics"
+  num_classes: 82
+  dropout: 0.5
+  gradient_checkpointing: true
+
+data:
+  train_split: "data/splits/train.csv"
+  val_split: "data/splits/val.csv"
+  test_split: "data/splits/test.csv"
+  num_frames: 16
+  sampling_rate: 4
+  input_size: 224
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+  num_workers: 4
+  pin_memory: true
+
+training:
+  epochs: 30
+  warmup_epochs: 5
+  micro_batch_size: 2          # Fits within 16 GB T4 VRAM
+  gradient_accumulation_steps: 16 # Effective batch size = 32
+  precision: "fp16"            # torch.cuda.amp.GradScaler
+  base_lr: 1.0e-3
+  min_lr: 1.0e-6
+  layer_decay: 0.75            # Layer-wise decay for transformer backbone
+  weight_decay: 0.05
+  label_smoothing: 0.1
+  mixup: 0.8
+  cutmix: 1.0
+
+checkpoint:
+  save_dir: "checkpoints/videomae_vit_b"
+  save_frequency_epochs: 1
+  auto_resume: true
+  keep_best_and_latest: true
+
+logging:
+  use_wandb: false
+  project_name: "sports-videomae-82"
+  csv_log_file: "training_history.csv"
