@@ -98,7 +98,11 @@ kaggle_cells = [
             "\n",
             "# Find raw video clips\n",
             "sample_videos = list(Path('/kaggle/input').rglob('*.avi')) + list(Path('/kaggle/input').rglob('*.mp4'))\n",
-            "print(f'Total video files detected: {len(sample_videos):,}')\n",
+            "if len(sample_videos) == 0:\n",
+            "    print('⚠️ WARNING: No video files detected in /kaggle/input!')\n",
+            "    print('👉 Please attach your dataset: On the right sidebar, click \"+ Add Input\" -> select or upload your dataset.')\n",
+            "else:\n",
+            "    print(f'✓ Found {len(sample_videos):,} video files in Kaggle input!')\n",
         ],
     },
     {

@@ -68,12 +68,48 @@ def has_videos(folder: Path) -> bool:
 
 
 def resolve_dataset_dir(configured_path: str) -> Path:
-    """Intelligently search common Kaggle and Colab input locations and auto-extract zips if needed."""
+    """Intelligently search common Kaggle and Colab input locations, mounted datasets, and auto-extract zips."""
     cfg_p = Path(configured_path)
     if has_videos(cfg_p):
         return cfg_p
 
-    # Auto-extract if Model Data.zip exists in Drive or content
+    # 1. Automatically scan ALL mounted datasets in /kaggle/input (regardless of name)
+    kaggle_input = Path("/kaggle/input")
+    mounted_kaggle = []
+    if kaggle_input.exists():
+        for sub in kaggle_input.iterdir():
+            mounted_kaggle.append(sub.name)
+            if sub.is_dir():
+                if has_videos(sub):
+                    print(f"[✓] Auto-detected video dataset in Kaggle input: {sub}")
+                    return sub
+                for child in sub.iterdir():
+                    if child.is_dir() and has_videos(child):
+                        print(f"[✓] Auto-detected video dataset in Kaggle input subfolder: {child}")
+                        return child
+
+        # Check if user uploaded a .zip file in Kaggle input
+        for zip_p in kaggle_input.rglob("*.zip"):
+            extract_target = Path("/kaggle/working/dataset")
+            if not has_videos(extract_target):
+                print(f"[📦] Found zip archive in Kaggle input: {zip_p}")
+                print(f"[📦] Extracting to {extract_target} ...")
+                extract_target.mkdir(parents=True, exist_ok=True)
+                import zipfile
+                with zipfile.ZipFile(zip_p, "r") as z:
+                    z.extractall(extract_target)
+            if has_videos(extract_target):
+                return extract_target
+
+    # 2. Check /content directory in Colab (regardless of subfolder name)
+    colab_content = Path("/content")
+    if colab_content.exists():
+        for sub in colab_content.iterdir():
+            if sub.is_dir() and sub.name not in ("sample_data", ".config", "drive") and has_videos(sub):
+                print(f"[✓] Auto-detected video dataset in Colab: {sub}")
+                return sub
+
+    # 3. Auto-extract if Model Data.zip exists in Drive or content
     candidate_zips = [
         Path("/content/drive/MyDrive/Model Data.zip"),
         Path("/content/drive/MyDrive/SportsAction/Model Data.zip"),
@@ -94,15 +130,15 @@ def resolve_dataset_dir(configured_path: str) -> Path:
             if has_videos(extract_target):
                 return extract_target
 
-    # Search common candidate locations
+    # 4. Search standard candidate locations
     candidates = [
-        Path("/content/dataset"),
-        Path("/content/dataset/Model Data"),
-        Path("/content/Model Data"),
         Path("/kaggle/input/sport-action-up"),
         Path("/kaggle/input/sports-action-up"),
         Path("/kaggle/input/model-data"),
         Path("/kaggle/input/ucf101"),
+        Path("/content/dataset"),
+        Path("/content/dataset/Model Data"),
+        Path("/content/Model Data"),
         Path("Archive/Model Data"),
         Path("Model Data"),
         cfg_p,
@@ -111,14 +147,25 @@ def resolve_dataset_dir(configured_path: str) -> Path:
         if has_videos(p):
             return p
 
-    raise FileNotFoundError(
-        f"\n[CRITICAL ERROR] No video files found at '{configured_path}' or any known search paths!\n"
-        f"Searched locations:\n" + "\n".join(f"  - {p.resolve()}" for p in candidates) + "\n\n"
-        "👉 If running in Google Colab:\n"
-        "   1. Ensure 'Model Data.zip' is uploaded to your Google Drive root ('/content/drive/MyDrive/Model Data.zip')\n"
-        "   2. Or unzip it manually in Colab with:\n"
-        "      !unzip -q '/content/drive/MyDrive/Model Data.zip' -d /content/dataset\n"
-    )
+    error_msg = f"\n[CRITICAL ERROR] No video files (.avi/.mp4) found!\n"
+    if kaggle_input.exists():
+        error_msg += (
+            f"\n📊 Kaggle Environment Detected:\n"
+            f"   Currently mounted in '/kaggle/input': {mounted_kaggle if mounted_kaggle else '[] (EMPTY)'}\n\n"
+            f"👉 How to fix in Kaggle:\n"
+            f"   1. Look at the right sidebar in your Kaggle notebook under 'Input'.\n"
+            f"   2. Click '+ Add Input'.\n"
+            f"   3. Select 'Upload Dataset', upload 'Model Data.zip' (from D:\\AKHI THESIS UP\\Archive\\Model Data.zip),\n"
+            f"      and wait for Kaggle to finish processing it.\n"
+            f"   4. Re-run Cell 5A!\n"
+        )
+    else:
+        error_msg += (
+            f"\n👉 How to fix in Google Colab:\n"
+            f"   1. Upload 'Model Data.zip' into your Google Drive root ('/content/drive/MyDrive/Model Data.zip').\n"
+            f"   2. Run: !unzip -q '/content/drive/MyDrive/Model Data.zip' -d /content/dataset\n"
+        )
+    raise FileNotFoundError(error_msg)
 
 
 def main():
