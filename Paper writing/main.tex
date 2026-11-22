@@ -1,0 +1,57 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% Essential Packages
+\usepackage[utf8]{inputenc}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{microtype}
+
+\newcommand{\etal}{\textit{et al.}}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Fine-Grained Sports Action Recognition using Video Masked Autoencoders with Zero-Leakage Group-Wise Partitioning}
+
+\author{\IEEEauthorblockN{Author Name}
+\IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
+\textit{University / Institute Name}\\
+City, Country \\
+email@university.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+Recognizing fine-grained human sports actions in unconstrained video broadcasts presents severe computer vision challenges, including pronounced inter-class visual similarity across athletic disciplines, rapid non-linear body trajectories, dynamic camera panning, and transient equipment interactions. Traditional action recognition architectures predominantly rely on multi-stage CNN-LSTM pipelines or compute-intensive 3D CNNs that struggle with long-range temporal dependencies and often exhibit data leakage due to naive clip-level dataset partitioning. In this paper, we propose an end-to-end Video Foundation Model framework for fine-grained sports action recognition based on Video Masked Autoencoders (VideoMAE ViT-B). The proposed architecture partitions video into $16 \times 16 \times 2$ spatiotemporal tubelets, leveraging deep self-attention across 12 Transformer layers to capture continuous athletic kinematic trajectories. To eliminate test-set contamination, we formulate a strict group-wise source video partitioning scheme across 82 sports categories (9,151 clips), guaranteeing completely disjoint scene, athlete, and camera distributions across 70\% train, 15\% validation, and 15\% test splits. Furthermore, we develop an interrupt-resilient training engine optimized for free-tier cloud accelerators (Kaggle dual-T4 GPUs with Distributed Data Parallelism and Google Colab with atomic state checkpoints), employing fp16 mixed-precision and gradient checkpointing to restrict activation memory under 10~GB. Systematic comparative evaluations against a 4-tier baseline hierarchy (Frozen-Feature Linear Probe, X3D-S, SlowFast-R50, and Video Swin-T) demonstrate that our fine-tuned VideoMAE model establishes state-of-the-art performance across 82 sports classes with exceptional sample efficiency.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Sports Action Recognition, Video Masked Autoencoders (VideoMAE), Vision Transformers, Spatiotemporal Attention, Zero-Leakage Group Splitting, Distributed Data Parallelism.
+\end{IEEEkeywords}
+
+% Modular Sections
+\input{sections/01_introduction.tex}
+\input{sections/02_related_work.tex}
+\input{sections/03_methodology.tex}
+\input{sections/04_experimental_setup.tex}
+\input{sections/05_results_and_discussion.tex}
+\input{sections/06_ablation_studies.tex}
+\input{sections/07_conclusion.tex}
+
+% References
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

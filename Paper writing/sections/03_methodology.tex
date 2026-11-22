@@ -1,0 +1,60 @@
+\section{Methodology}
+\label{sec:methodology}
+
+In this section, we delineate the proposed fine-grained sports action recognition pipeline, detailing the spatiotemporal tokenization, Vision Transformer backbone, classification head, layer-wise learning rate adaptation, and memory optimization protocols.
+
+\subsection{Spatiotemporal Tubelet Tokenization}
+Let an input video clip be represented as a 4D tensor $\mathbf{X} \in \mathbb{R}^{T \times C \times H \times W}$, where $T=16$ denotes the number of sampled temporal frames, $C=3$ is the RGB channel count, and $H=W=224$ denotes the normalized spatial resolution. 
+
+Rather than extracting 2D spatial patches independently on each frame, the input volume is partitioned into non-overlapping 3D spatiotemporal tubelets of size $t \times h \times w = 2 \times 16 \times 16$. This spatiotemporal patch extraction generates a sequence of $N$ tubelet tokens:
+\begin{equation}
+N = \left(\frac{T}{t}\right) \times \left(\frac{H}{h}\right) \times \left(\frac{W}{w}\right) = \left(\frac{16}{2}\right) \times \left(\frac{224}{16}\right) \times \left(\frac{224}{16}\right) = 1,568
+\end{equation}
+Each 3D tubelet of dimensionality $t \cdot h \cdot w \cdot C = 2 \times 16 \times 16 \times 3 = 1,536$ is mapped to a latent embedding space of dimension $D = 768$ via a trainable 3D convolutional projection:
+\begin{equation}
+\mathbf{z}_0 = [\mathbf{x}_1 \mathbf{E}; \mathbf{x}_2 \mathbf{E}; \dots; \mathbf{x}_N \mathbf{E}] + \mathbf{E}_{pos}
+\end{equation}
+where $\mathbf{E} \in \mathbb{R}^{1536 \times 768}$ is the linear tubelet projection matrix, and $\mathbf{E}_{pos} \in \mathbb{R}^{N \times D}$ denotes learnable 3D spatiotemporal positional embeddings that encode the relative spatial coordinates and chronological temporal order of each token.
+
+\subsection{Transformer Encoder Backbone}
+The embedded sequence $\mathbf{z}_0 \in \mathbb{R}^{N \times D}$ is passed through $L=12$ consecutive Vision Transformer (ViT-B) encoder blocks. Each block consists of Multi-Head Self-Attention (MHSA), Multi-Layer Perceptron (MLP) feed-forward blocks, and Layer Normalization (LN):
+\begin{align}
+\mathbf{z}'_l &= \text{MHSA}(\text{LN}(\mathbf{z}_{l-1})) + \mathbf{z}_{l-1}, \quad l \in \{1, \dots, L\} \\
+\mathbf{z}_l &= \text{MLP}(\text{LN}(\mathbf{z}'_l)) + \mathbf{z}'_l
+\end{align}
+For each of the $M=12$ attention heads with head dimension $d = D/M = 64$, Query ($\mathbf{Q}$), Key ($\mathbf{K}$), and Value ($\mathbf{V}$) projections compute full spatiotemporal pairwise token interactions:
+\begin{equation}
+\text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{Softmax}\left(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d}} + \mathbf{B}_{rel}\right)\mathbf{V}
+\end{equation}
+where $\mathbf{B}_{rel}$ represents relative spatiotemporal positional bias. Through joint spatiotemporal self-attention across all 1,568 tokens, each token dynamically attends to relevant kinematic patches across both spatial coordinates and adjacent temporal frames.
+
+\subsection{Classification Head and Loss Formulation}
+Following the final transformer layer $\mathbf{z}_L \in \mathbb{R}^{N \times D}$, global spatiotemporal average pooling computes a compact video-level feature representation $\mathbf{h} \in \mathbb{R}^D$:
+\begin{equation}
+\mathbf{h} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{z}_{L, i}
+\end{equation}
+The aggregated feature vector is regularized using a dropout layer ($p=0.5$) and projected to class logits $\hat{\mathbf{y}} \in \mathbb{R}^{K}$ across the $K=82$ sports action categories:
+\begin{equation}
+\hat{\mathbf{y}} = \mathbf{W}_{cls} \left( \text{Dropout}(\text{LN}(\mathbf{h})) \right) + \mathbf{b}_{cls}
+\end{equation}
+where $\mathbf{W}_{cls} \in \mathbb{R}^{82 \times 768}$ and $\mathbf{b}_{cls} \in \mathbb{R}^{82}$ are the trainable classifier parameters.
+
+The model is trained end-to-end using cross-entropy loss with label smoothing ($\epsilon=0.1$) to prevent overconfidence on visually ambiguous athletic gestures:
+\begin{equation}
+\mathcal{L} = -\sum_{k=1}^{K} \left( (1 - \epsilon) y_k + \frac{\epsilon}{K} \right) \log \left( \frac{\exp(\hat{y}_k)}{\sum_{j=1}^{K} \exp(\hat{y}_j)} \right)
+\end{equation}
+
+\subsection{Layer-Wise Learning Rate Decay}
+Because the backbone was pre-trained on Kinetics-400, early transformer layers capture universal low-level edge and motion filters, whereas deeper layers model complex semantic gestures. To preserve foundational representations while adapting high-level abstractions, we apply Layer-Wise Learning Rate Decay (LLRD) with decay factor $\lambda = 0.75$. For layer $l \in \{1, \dots, L\}$, the effective learning rate $\eta_l$ is governed by:
+\begin{equation}
+\eta_l = \eta_{base} \cdot \lambda^{L - l}
+\end{equation}
+The classification head receives the unscaled base learning rate $\eta_{base}$, ensuring rapid convergence while preventing catastrophic forgetting in the lower encoder stages.
+
+\subsection{Hardware Memory Optimization on Free-Tier GPUs}
+Fine-tuning an 86M-parameter vision transformer with 1,568 tokens per video sample requires extensive memory budgets. To fit within standard 16~GB VRAM GPUs (NVIDIA T4 / Tesla P100), we integrate two complementary optimization techniques:
+\begin{enumerate}
+    \item \textbf{Half-Precision (fp16) Mixed Precision}: Forward activations and gradient operations are executed in IEEE 754 float16 using PyTorch AMP. An automated \texttt{GradScaler} dynamically scales loss magnitudes to prevent underflow.
+    \item \textbf{Gradient Checkpointing}: During the forward pass, intermediate self-attention activations are discarded from GPU memory and recomputed on demand during the backward pass~\cite{chen2016training}, reducing activation memory by 60--70\% with only $\sim$15\% compute overhead.
+\end{enumerate}
+Together with micro-batching ($B_{micro}=2$ or $4$) and gradient accumulation across 16 steps, we achieve an effective global batch size of 32 to 64 while maintaining peak VRAM utilization below 10~GB per GPU.

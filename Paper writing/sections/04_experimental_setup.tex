@@ -1,0 +1,36 @@
+\section{Experimental Setup}
+\label{sec:experimental_setup}
+
+\subsection{Dataset Curation and Taxonomy}
+We evaluate our framework on a curated sports benchmark comprising **82 distinct sports action categories** encompassing **9,151 video clips**, constructed from the sports taxonomy of the UCF101 dataset~\cite{soomro2012ucf101}. The dataset spans 8 diverse athletic domains: Racket Sports (e.g., \textit{TennisSwing}, \textit{TableTennisShot}), Gymnastics (e.g., \textit{ParallelBars}, \textit{PommelHorse}, \textit{BalanceBeam}), Aquatic Events (e.g., \textit{BreastStroke}, \textit{Diving}, \textit{Surfing}), Combat Sports (e.g., \textit{BoxingSpeedBag}, \textit{SumoWrestling}), Track and Field (e.g., \textit{HighJump}, \textit{JavelinThrow}, \textit{PoleVault}), Strength Athletics (e.g., \textit{CleanAndJerk}, \textit{BenchPress}), and Recreational Sports (e.g., \textit{SkateBoarding}, \textit{Archery}, \textit{Bowling}).
+
+\subsection{Zero-Leakage Group-Wise Splitting Protocol}
+In standard video benchmarks, multiple video segments are extracted from a single recording session, following the naming pattern:
+$$\mathbf{v\_[Class]\_g[GroupID]\_c[ClipID].avi}$$
+Clips sharing an identical group identifier $g[GroupID]$ depict the exact same athlete, background environment, lighting, and camera angle. A standard random train/validation/test split inevitably disperses clips with matching group IDs across training and testing partitions, leaking background context and athlete identity into the test evaluation.
+
+To enforce rigorous, leak-free evaluation, we formulate an automated group-wise partitioning algorithm:
+\begin{enumerate}
+    \item For each category $c \in \{1, \dots, 82\}$, we group all associated clips by their source group ID: $\mathcal{G}_c = \{g_1, g_2, \dots, g_M\}$.
+    \item Groups are randomly partitioned into mutually exclusive subsets:
+    \begin{align}
+        \mathcal{G}_c^{train} &\approx 0.70 \times |\mathcal{G}_c| \\
+        \mathcal{G}_c^{val} &\approx 0.15 \times |\mathcal{G}_c| \\
+        \mathcal{G}_c^{test} &\approx 0.15 \times |\mathcal{G}_c|
+    \end{align}
+    \item All clips assigned to group $g$ are mapped exclusively to its designated split.
+\end{enumerate}
+This yields approximately 6,400 training clips, 1,375 validation clips, and 1,375 test clips, with guaranteed zero clip and zero group overlap:
+\begin{equation}
+\mathcal{G}^{train} \cap \mathcal{G}^{val} = \emptyset, \quad \mathcal{G}^{train} \cap \mathcal{G}^{test} = \emptyset, \quad \mathcal{G}^{val} \cap \mathcal{G}^{test} = \emptyset
+\end{equation}
+
+\subsection{Training Configurations and Cloud Infrastructure}
+Experiments were executed across two complementary cloud platforms:
+\begin{itemize}
+    \item \textbf{Kaggle Dual-T4 (Primary)}: 2$\times$ NVIDIA T4 GPUs (16~GB VRAM each, 32~GB total), utilizing PyTorch Distributed Data Parallelism (DDP) via \texttt{torchrun}. A micro-batch size of 4 per GPU with 4 gradient accumulation steps yields an effective global batch size of 32. Epoch duration averages $\sim$7 minutes ($\sim$3.5 to 4.0 hours for 30 epochs).
+    \item \textbf{Google Colab (Secondary)}: Single NVIDIA T4 GPU (16~GB), utilizing a micro-batch of 2 with 16 gradient accumulation steps (effective batch size 32). Checkpoints and telemetry logs are automatically synchronized to Google Drive.
+\end{itemize}
+
+\subsection{Implementation Details and Hyperparameters}
+Models are optimized using the AdamW optimizer ($\beta_1=0.9, \beta_2=0.999$, weight decay 0.05) over 30 epochs. The learning rate is initialized to $1 \times 10^{-3}$ and modulated via a Cosine Annealing schedule with 5 epochs of linear warmup down to $1 \times 10^{-6}$. Fast C++ video decoding is performed on-the-fly using \texttt{decord.VideoReader}. Training augmentations include random resized cropping (scale 0.5 to 1.0, aspect ratio 0.75 to 1.33) and random horizontal flipping ($p=0.5$), followed by ImageNet mean-variance normalization.
